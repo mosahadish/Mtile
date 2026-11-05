@@ -1,0 +1,32 @@
+/// macOS-only (Wtile has no GPU segment). Renders nothing (zero width) when no GPU reports
+/// utilization, like BatterySegment on a machine with no battery.
+public final class GpuSegment: Segment {
+    private static let padding = 12.0
+    static let defaultFormat = "GPU {0}%"
+    private static let maxPercent = 100
+
+    private let theme: BarTheme
+    private let format: String?
+    private let percent: () -> Double?
+
+    public init(theme: BarTheme, format: String?, percent: @escaping () -> Double? = SystemStats.gpuPercent) {
+        self.theme = theme
+        self.format = format
+        self.percent = percent
+    }
+
+    static func text(_ format: String?, _ percent: Int) -> String {
+        SegmentFormat.apply(format ?? defaultFormat, fallback: defaultFormat, [String(percent)])
+    }
+
+    // See CpuSegment: reserves width for 100% so the bar doesn't shift as the digit count changes.
+    public func measure(_ canvas: BarCanvas) -> Double {
+        guard percent() != nil else { return 0 }
+        return canvas.measure(Self.text(format, Self.maxPercent)) + Self.padding
+    }
+
+    public func draw(_ canvas: BarCanvas, _ bounds: BarRect) {
+        guard let value = percent() else { return }
+        canvas.drawText(Self.text(format, Int(value.rounded())), in: bounds, color: theme.foreground, alignment: .center)
+    }
+}

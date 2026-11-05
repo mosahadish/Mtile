@@ -1,0 +1,386 @@
+# Wtile configuration.
+# Not watched live -- after editing and saving, press the "reload" hotkey (Win+Shift+R by
+# default, see --- session --- below) to apply. That hotkey also unconditionally refreshes the
+# bar's screen geometry, so it doubles as the fix for a stale bar/layout after connecting or
+# disconnecting a monitor, or after resuming from sleep (Windows' monitor handles go stale across
+# a sleep/wake cycle, same as a real hotplug).
+#
+# This same file also configures Mtile, the macOS version (~/.config/mtile/config.yaml). On
+# macOS "Win" means the Option key and "Alt" means Command by default (Option sits where the
+# Windows key is on a PC keyboard, and it keeps Cmd+S/Cmd+Q/... working in apps); see
+# general.macosWinKey to swap them. Any hotkey, blacklist or tagRules entry can carry a "macos:"
+# block whose fields replace the entry's own values on macOS only (Wtile ignores it), and
+# "enabled: false" inside it skips the entry on macOS. Windows-only settings (hideTitlebars,
+# focusedBorder*, rememberState) are ignored on macOS.
+
+general:
+  tagCount: 9
+  focusFollowsMouse: false
+  borderGap: 0
+  # Layout every tag on every monitor starts on: master-stack, master-stack-right, monocle,
+  # centered-master, or vertical (see layouts: below). Its nmaster/mfact/gap still come from the
+  # "master-stack" entry below regardless of which of these is picked -- per-tag/monitor layout
+  # config isn't supported yet, just the starting layout name.
+  defaultLayout: master-stack
+  # Strips the title bar and resize border from every managed window (tiled and floating alike).
+  # Original styles are remembered per-window and restored on quit (or if you flip this back off
+  # + reload), so this is safe to toggle without leaving windows permanently borderless.
+  hideTitlebars: false
+  # Colored border (dwm/mango-style) around whichever managed window currently has focus, drawn
+  # flush against the window's own visible edge (not in the gap, so it works the same whether
+  # borderGap/layout gap is 0 or not). 0 disables it entirely.
+  focusedBorderWidth: 2
+  focusedBorderColor: "#89b4fa"
+  # Opt-in: remembers which monitor/tag/floating/pinned state each window had (state.json, next to
+  # this config file), and restores it on startup and on "reload", matching saved windows to
+  # newly-opened ones by process name + window class (title isn't used -- it churns too much, e.g.
+  # browser tabs). Off by default. Independent of this: state.json is always kept fresh and always
+  # used to recover a window left OS-hidden or titlebar-stripped by an unclean exit -- that's a
+  # correctness safety net, not something this setting controls.
+  rememberState: false
+  # dwm's attach vs. attachaside: whether a newly-opened window becomes the new master (true,
+  # the default) or attaches right after the current master instead, leaving it in place and
+  # pushing everything else down the stack. Applies to every layout with a master concept
+  # (master-stack, master-stack-right, centered-master).
+  newIsMaster: true
+  # Start Wtile at Windows login, pointing at whichever Wtile.exe applies this config:
+  #   off    don't start at login (removes any registration a previous setting made)
+  #   user   start with normal rights, via the per-user Run registry key
+  #   admin  start as administrator, via a scheduled logon task. Needed to tile windows running
+  #          as administrator, which a non-elevated Wtile isn't allowed to move. Also starts
+  #          sooner, since Windows delays Run key entries after login. Apps Wtile launches
+  #          inherit the elevation. Switching to or from admin from a non-elevated Wtile asks
+  #          for permission once (UAC).
+  launchOnBoot: off
+  # Mtile (macOS) only, ignored by Wtile: which Mac key "Win" in the hotkeys below means.
+  #   option   (default) Win = Option, Alt = Command
+  #   command  Win = Command, Alt = Option -- note this takes over app shortcuts such as Cmd+S
+  #            (Win+S), Cmd+Q (Win+Q), Cmd+W (Win+W) and Cmd+1..9 (Win+1..9)
+  macosWinKey: option
+
+# blacklist: exclude specific windows from tiling entirely, matched by regex against the
+# window's process name, window class name, and/or title (case-insensitive, unanchored -- add
+# ^/$ yourself to anchor). Within one rule, only the fields you set are checked (all set fields
+# must match); a window is excluded if ANY rule matches. A rule left completely blank would match
+# every window and is rejected with a warning instead. Only affects windows opened after the next
+# "reload" -- it won't retroactively untile something already being managed.
+#
+# Common shell popups (the volume/brightness OSD, etc.) and generic dialog boxes (Run, Open/Save,
+# message boxes, "#32770") are already excluded automatically and don't need an entry here --
+# this is for anything else you want to keep floating/untiled. Use the "inspect-window" hotkey
+# (Win+Shift+I below) to print the focused window's exact process/class/title so you don't have
+# to guess. Example:
+# blacklist:
+#   - processName: "^steam\\.exe$"
+#     title: "Friends List"
+
+# tagRules: open specific windows on a specific tag (and optionally monitor) as they appear,
+# instead of whichever monitor/tag happened to be active (dwm's rules[] with a tag mask).
+# Matched exactly like blacklist: above (regex on processName/className/title, case-insensitive,
+# unanchored, blank field = wildcard, all set fields must match); the first matching rule wins.
+# "tag" is 1-based, the same number you'd press with view-tag. "monitor" is optional, 1-based in
+# the order the bars appear; omitted means the monitor the window opened on, and a number past
+# the last monitor means the last one (so "monitor: 2" still works undocked). Rules decide where
+# a window OPENS: editing one and pressing "reload" doesn't move windows already on some tag,
+# and with rememberState on, a window already open at startup/reload goes back to wherever
+# state.json says it was -- the rule only kicks in for one state.json has no record of.
+#
+# follow: true switches to that monitor/tag as the window appears (dwm's switchtotag patch), so a
+# browser can pull you over while a terminal (follow left off, or false) opens quietly on its tag
+# for later. Never fires for windows already open when Wtile starts.
+# A rule whose tag is outside 1..tagCount, or with every match field blank, is dropped with a
+# warning. Same inspect-window hotkey as for blacklist to find the exact names. Example:
+# tagRules:
+#   - processName: "^firefox\\.exe$"
+#     tag: 2
+#     follow: true
+#   - processName: "^wt\\.exe$"
+#     monitor: 2
+#     tag: 3
+
+layouts:
+  # Every tag starts on master-stack with these params (see hotkeys --- layout --- below for how
+  # per-tag values then diverge, including gap via adjust-gap/toggle-gap). "master-stack-right"
+  # (master column on the right, "=[]"), "monocle" ("[M]", every window fullscreen, only the
+  # focused one visible), "centered-master" ("|M|", master centered with stack windows
+  # alternating left/right of it), "vertical" ("=", every window a full-width row, no master),
+  # "deck" ("[D]", master tiles normally but stack windows overlap full-size behind each other,
+  # only the focused one visible), and "dwindle" ("[\]", windows spiral inward, each one taking
+  # half of whatever space is left) are also registered and selectable via set-layout (Win+T /
+  # Win+M / Win+W / Win+Shift+V / Win+Shift+D / Win+Shift+Y below) -- they don't need their own
+  # entry here: master-stack-right, centered-master, and deck reuse whichever nmaster/mfact/gap
+  # the tag already has (same params, just arranged differently), monocle ignores those params
+  # entirely, vertical only looks at gap, and dwindle only looks at mfact/gap (no nmaster).
+  - name: master-stack
+    symbol: "[]="
+    nmaster: 1
+    mfact: 0.55
+    gap: 0
+
+bar:
+  height: 24
+  fontFamily: "Segoe UI"
+  fontSize: 10
+  position: top # top | bottom
+  # How the tags segment marks an occupied-but-not-active tag -- the two are mutually exclusive,
+  # never both at once:
+  #   marker     (default) dwm's small corner square, normal text, no background fill.
+  #   background fills the whole pill with colors.occupiedTag below, no marker square.
+  occupiedTagIndicator: marker # marker | background
+  segments:
+    left: [tags, layout-symbol, window-title]
+    # cpu/memory/battery/network/volume are slstatus-style system-stat modules -- battery renders
+    # nothing on a desktop with no system battery, volume renders nothing with no audio device.
+    # network is listed first (leftmost of the right-aligned group) since its width jitters more
+    # than the others (B/K/M/G unit switching) -- that way its jitter only nudges the flexible
+    # window-title segment on the left, not the other modules to its right.
+    right: [network, cpu, memory, battery, volume, clock]
+  colors:
+    background: "#1e1e2e"
+    foreground: "#cdd6f4"
+    activeTag: "#89b4fa"
+    urgentTag: "#f38ba8"
+    # occupiedTag: background for an occupied-but-not-active tag pill -- only drawn when
+    # occupiedTagIndicator above is "background". Left unset (default), it's derived from
+    # background/foreground so it stays readable against either.
+    # occupiedTag: "#45475a"
+  # Optional per-module format-string overrides for the system-stat segments above. Omit a
+  # module here (or leave format: "") to use its built-in default shown below. {N} placeholders
+  # are positional (string.Format-style) -- a malformed format string falls back to the default
+  # instead of breaking the bar.
+  modules:
+    - name: cpu
+      format: "CPU {0}%"        # {0} = integer percent 0-100
+    - name: memory
+      format: "MEM {0}%"        # {0} = integer percent 0-100
+    - name: battery
+      format: "BAT {0}% {1}"    # {0} = percent, {1} = "Charging" | "AC" | ""
+    - name: network
+      format: "↓{0} ↑{1}"       # {0}/{1} = human rate strings, e.g. "1.2MB/s"
+    - name: volume
+      format: "VOL {0}%"        # {0} = integer percent 0-100; when muted, shows bare "MUTED" instead of this whole format
+
+hotkeys:
+  # Live: entries below are real, working bindings.
+  #
+  # Heads up: Windows itself already owns several Win+<key> combos (Win+E, Win+1-9, Win+Tab,
+  # and -- unlike everything else -- Win+L specifically can NEVER be bound by any app: it's
+  # hardcoded to lock the workstation, below even our low-level keyboard hook, same as
+  # Ctrl+Alt+Delete). Bare Win+<key> combos besides Win+L DO work here (via a low-level keyboard
+  # hook, not RegisterHotKey -- see Hotkeys/HotkeyManager.cs for why that matters on Windows).
+  #
+  # Win+G is a similar practical exception, though not hardcoded the same way as Win+L: if Xbox
+  # Game Bar's own Win+G capture is enabled (Settings > Gaming > Xbox Game Bar, or the
+  # HKCU\System\GameConfigStore\GameDVR_Enabled registry value), it intercepts Win+G through a
+  # separate input path Game Bar installs for itself -- specifically so it still works inside
+  # full-screen games that block normal hooks -- so it can open Game Bar even when Win+G is bound
+  # to something else here. Binding it below still works (both fire), but if you don't want Game
+  # Bar popping up too, disable that Xbox Game Bar setting rather than trying to out-hook it.
+
+  # --- spawn ---
+  - keys: "Win+Shift+T"
+    command: spawn
+    args: ["wt.exe"]
+    macos:
+      args: ["open", "-a", "Terminal", "."]
+  - keys: "Win+E"
+    command: spawn
+    args: ["firefox.exe"]
+
+  # --- launcher ---
+  # dmenu-style app launcher: a single fuzzy-filterable line that appears flush against the bar
+  # (below a top bar, above a bottom bar), listing PATH executables and Start Menu shortcuts.
+  # Type to filter, Tab/Right/Left to change the highlighted match, Enter to launch it, Escape (or
+  # clicking away) to dismiss without launching. Escape is unbound everywhere else by default, so
+  # this is safe out of the box.
+  #
+  # Whatever gets launched always runs at your normal, unelevated privilege level, even if Wtile
+  # itself is running as administrator (launch-on-boot: admin) -- Wtile never silently hands an
+  # ordinary app the same admin rights it runs with. Use Win+Shift+Escape instead when you
+  # specifically want the picked app to run elevated; it only actually elevates when Wtile itself
+  # is already running as administrator, since Wtile can't grant privileges it doesn't have --
+  # otherwise it behaves exactly like plain Win+Escape.
+  - keys: "Win+Escape"
+    command: app-launcher
+  - keys: "Win+Shift+Escape"
+    command: app-launcher
+    args: ["elevated"]
+
+  # --- focus / window ---
+  - keys: "Win+J"
+    command: focus-next
+  - keys: "Win+K"
+    command: focus-prev
+  - keys: "Win+Tab"
+    command: focus-next
+  - keys: "Win+X"
+    command: swap-master           # swaps the focused window with master
+  - keys: "Win+Q"
+    command: kill-window        # polite WM_CLOSE -- a well-behaved app gets to prompt/save first
+  - keys: "Win+Ctrl+Q"          # forcibly terminates the process -- no save prompt, for something
+    command: force-kill-window  # that ignores WM_CLOSE entirely (a hang, or a system flyout/dialog)
+  - keys: "Win+G"
+    command: toggle-floating
+
+  # --- layout ---
+  # nmaster/mfact/gap below seed every tag's starting values, but each tag then tracks its own
+  # copy independently (adjust-mfact on tag 3 doesn't touch tag 1). "reload" resets every tag
+  # back to these values.
+  #
+  # mfact uses Win+Shift+H/L rather than plain Win+H/Win+L, since Win+L can never be bound (see
+  # the Win+L note above) and would otherwise silently never fire.
+  - keys: "Win+Shift+H"
+    command: adjust-mfact
+    args: ["-0.05"]
+  - keys: "Win+Shift+L"
+    command: adjust-mfact
+    args: ["0.05"]
+  - keys: "Win+I"
+    command: adjust-nmaster
+    args: ["1"]
+  - keys: "Win+D"
+    command: adjust-nmaster
+    args: ["-1"]
+  - keys: "Win+T"
+    command: set-layout
+    args: ["master-stack"]
+  - keys: "Win+M"
+    command: set-layout
+    args: ["monocle"]
+  - keys: "Win+W"
+    command: set-layout
+    args: ["centered-master"]
+  - keys: "Win+Shift+V"
+    command: set-layout            # every window gets a full-width row, stacked top to bottom
+    args: ["vertical"]
+  - keys: "Win+Shift+D"
+    command: set-layout            # master tiles normally, stack windows overlap full-size behind
+    args: ["deck"]                 # each other -- only the focused stack window is visible
+  - keys: "Win+Shift+Y"
+    command: set-layout            # windows spiral inward, each new one taking half of what's left
+    args: ["dwindle"]
+
+  # Gap controls: plain Win+= toggles, both adjustments take Shift.
+  - keys: "Win+Shift+-"
+    command: adjust-gap
+    args: ["-5"]
+  - keys: "Win+Shift+="
+    command: adjust-gap
+    args: ["5"]
+  - keys: "Win+="                 # toggles the gap between 0 and whatever it last was
+    command: toggle-gap
+
+  # --- tags 1-9 ---
+  - keys: "Win+1"
+    command: view-tag
+    args: ["1"]
+  - keys: "Win+2"
+    command: view-tag
+    args: ["2"]
+  - keys: "Win+3"
+    command: view-tag
+    args: ["3"]
+  - keys: "Win+4"
+    command: view-tag
+    args: ["4"]
+  - keys: "Win+5"
+    command: view-tag
+    args: ["5"]
+  - keys: "Win+6"
+    command: view-tag
+    args: ["6"]
+  - keys: "Win+7"
+    command: view-tag
+    args: ["7"]
+  - keys: "Win+8"
+    command: view-tag
+    args: ["8"]
+  - keys: "Win+9"
+    command: view-tag
+    args: ["9"]
+  # move-window-to-tag always drops the window there, unpinning it first if it was pinned (see
+  # toggle-pinned below) -- e.g. pin a window, then Win+Shift+3 to drop it onto tag 3 instead of
+  # having to switch to tag 3 and toggle-pinned it off from there.
+  - keys: "Win+Shift+1"
+    command: move-window-to-tag
+    args: ["1"]
+  - keys: "Win+Shift+2"
+    command: move-window-to-tag
+    args: ["2"]
+  - keys: "Win+Shift+3"
+    command: move-window-to-tag
+    args: ["3"]
+  - keys: "Win+Shift+4"
+    command: move-window-to-tag
+    args: ["4"]
+  - keys: "Win+Shift+5"
+    command: move-window-to-tag
+    args: ["5"]
+  - keys: "Win+Shift+6"
+    command: move-window-to-tag
+    args: ["6"]
+  - keys: "Win+Shift+7"
+    command: move-window-to-tag
+    args: ["7"]
+  - keys: "Win+Shift+8"
+    command: move-window-to-tag
+    args: ["8"]
+  - keys: "Win+Shift+9"
+    command: move-window-to-tag
+    args: ["9"]
+  - keys: "Win+0"                 # view every tag's windows together; press any specific tag
+    command: view-all-tags        # key to go back to viewing just that one
+  - keys: "Win+Shift+0"           # pin the focused window so it stays visible/tiled across
+    command: toggle-pinned        # every tag switch, regardless of its own tag
+  - keys: "Win+`"
+    command: toggle-last-tag      # toggle back to the previously-viewed tag
+  - keys: "Win+A"
+    command: shift-view           # view the tag one to the left, relative
+    args: ["-1"]
+  - keys: "Win+S"
+    command: shift-view           # view the tag one to the right, relative
+    args: ["1"]
+
+  # --- monitors ---
+  # Each monitor has its own tags/active-tag/layout state -- the config below is shared (same tag
+  # count, same default layout) but each monitor then diverges independently at runtime, same as
+  # tags already do. "Current monitor" follows whichever window you last focused, or whichever
+  # monitor's bar you last clicked a tag on.
+  - keys: "Win+,"
+    command: focus-monitor
+    args: ["-1"]
+  - keys: "Win+."
+    command: focus-monitor
+    args: ["1"]
+  - keys: "Win+Shift+,"
+    command: move-window-to-monitor
+    args: ["-1"]
+  - keys: "Win+Shift+."
+    command: move-window-to-monitor
+    args: ["1"]
+
+  # --- bar / taskbar ---
+  - keys: "Win+Space"              # hides the real Windows taskbar entirely (not Windows' own
+    command: toggle-taskbar        # auto-hide, which still peeks out on mouse-hover at the edge)
+                                    # and reclaims its space for tiling. On macOS it hides the
+                                    # Dock the same way (no hover peek-out) until toggled back
+                                    # or Mtile quits.
+  # Not Win+Shift+Space: Windows reserves that (and Win+Space alone) for its own input
+  # language/keyboard layout switcher below the normal hook layer -- same class of unhookable
+  # OS-hardcoded combo as Win+L (see HotkeyManager.cs) -- so it can win the race and pop up the
+  # layout switcher instead of toggling the bar.
+  - keys: "Win+Shift+B"            # hides Wtile's own bar on every monitor (dwm/bug.n-style) and
+    command: toggle-bar            # reclaims its space for tiling.
+
+  # --- debug ---
+  - keys: "Win+Shift+I"            # prints the focused window's process/class/title to the
+    command: inspect-window        # console -- use it to find values for a blacklist: or
+                                    # tagRules: rule above
+
+  # --- session ---
+  - keys: "Win+Shift+Q"
+    command: quit
+  - keys: "Win+Shift+R"           # re-reads config.yaml and refreshes bar/screen geometry in place
+    command: reload
+  - keys: "Win+Shift+C"           # opens config.yaml in your default editor (Notepad if none)
+    command: open-config
