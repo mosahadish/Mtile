@@ -4,13 +4,17 @@
 > Wtile, the dwm-style tiling window manager for Windows. It started as a port of Wtile's code to
 > Swift and keeps Wtile's design: the same layouts, commands, tags, bar and hotkeys, and **the
 > same `config.yaml`**. If you know Wtile, you already know Mtile.
+>
+> Original Wtile (Windows): [HollowThorn/Wtile](https://github.com/HollowThorn/Wtile) · My fork:
+> [mosahadish/Wtile](https://github.com/mosahadish/Wtile)
 
 Mtile is a native Swift re-implementation, not a wrapper. Its folders mirror Wtile's `src/Wtile`
 one-to-one (`Bar/`, `Commands/`, `Config/`, `Core/`, `Hotkeys/`, `Launcher/`, `Layouts/`), and
 the tests in `tests/Mtile.Tests` mirror `tests/Wtile.Tests`, so a fix or feature in one is easy
 to carry over to the other.
 
-> **Status:** experimental, in daily use on macOS. It used to live inside the Wtile repo and is
+> **Status:** experimental, in daily use on macOS. **Bugs are expected** — please open an issue
+> if you hit one. It used to live inside the Wtile repo and is
 > now its own project. `docs/config.sample.yaml` is a copy of Wtile's and must stay identical to it.
 
 ## Build & test
@@ -88,4 +92,5 @@ up on the wrong display.
 
 Mtile exists because of **[Wtile](https://github.com/HollowThorn/Wtile)**. Wtile's design, config
 format, command set and layout maths (pixel-identical, including banker's rounding) are the
-blueprint Mtile follows. Wtile in turn is inspired by [dwm](https://dwm.suckless.org/).
+blueprint Mtile follows. I keep a fork of it at
+[mosahadish/Wtile](https://github.com/mosahadish/Wtile). Wtile in turn is inspired by [dwm](https://dwm.suckless.org/).
