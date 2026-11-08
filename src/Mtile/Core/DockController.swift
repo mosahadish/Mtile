@@ -90,15 +90,21 @@ public final class DockController {
         }
     }
 
-    public func setHidden(_ hidden: Bool) {
+    /// `onApplied` runs on the main queue once the Dock has finished hiding (after its restart and
+    /// the live auto-hide switch), when visibleFrame reflects the change; immediately on show.
+    public func setHidden(_ hidden: Bool, onApplied: (() -> Void)? = nil) {
         guard hidden != isHidden else { return }
+        let liveAutohide = hidden ? Self.coreDockSetAutoHide : nil
         if hidden {
             let current = SavedDockSettings(autohide: Self.readBool(Self.autohideKey), autohideDelay: Self.readDouble(Self.delayKey))
             guard save(current) else {
                 print("[dock] Couldn't save the current Dock settings to \(savePath); not hiding the Dock.")
                 return
             }
-            Self.write(Self.autohideKey, true as CFBoolean)
+            // A Dock relaunched straight into auto-hide keeps the screen space it reserved while
+            // shown (visibleFrame stays short and macOS clamps windows to it). So only the delay
+            // goes in before the restart; auto-hide is switched on live once the Dock is back.
+            if liveAutohide == nil { Self.write(Self.autohideKey, true as CFBoolean) }
             Self.write(Self.delayKey, DockHiding.revealDelay as CFNumber)
         } else {
             let saved = load() ?? SavedDockSettings(autohide: nil, autohideDelay: nil)
@@ -107,8 +113,40 @@ public final class DockController {
             try? FileManager.default.removeItem(atPath: savePath)
         }
         CFPreferencesAppSynchronize(Self.domain)
-        Self.restartDock()
+        let oldDocks = Self.restartDock()
         isHidden = hidden
+        if let liveAutohide {
+            Self.whenDockRelaunched(replacing: oldDocks) { [weak self] in
+                guard let self, self.isHidden else { return }
+                liveAutohide(true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { onApplied?() }
+            }
+        } else {
+            onApplied?()
+        }
+    }
+
+    private typealias SetAutoHideFn = @convention(c) (DarwinBoolean) -> Void
+
+    /// Private HIServices call System Events' "dock preferences" uses: it writes the pref and
+    /// tells the running Dock, which then gives its reserved screen space back.
+    private static let coreDockSetAutoHide: ((Bool) -> Void)? = {
+        guard let handle = dlopen("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices", RTLD_LAZY),
+              let symbol = dlsym(handle, "CoreDockSetAutoHideEnabled") else { return nil }
+        let fn = unsafeBitCast(symbol, to: SetAutoHideFn.self)
+        return { fn(DarwinBoolean($0)) }
+    }()
+
+    private static func whenDockRelaunched(replacing old: Set<pid_t>, attempts: Int = 40, _ body: @escaping () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            let relaunched = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock")
+                .contains { !old.contains($0.processIdentifier) && $0.isFinishedLaunching }
+            if relaunched || attempts <= 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.75, execute: body) // let it settle before talking to it
+            } else {
+                whenDockRelaunched(replacing: old, attempts: attempts - 1, body)
+            }
+        }
     }
 
     private func save(_ settings: SavedDockSettings) -> Bool {
@@ -141,10 +179,14 @@ public final class DockController {
     }
 
     /// The Dock only reads these settings at launch; launchd relaunches it right away.
-    private static func restartDock() {
+    @discardableResult
+    private static func restartDock() -> Set<pid_t> {
+        var killed = Set<pid_t>()
         for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") {
             kill(dock.processIdentifier, SIGTERM)
+            killed.insert(dock.processIdentifier)
         }
+        return killed
     }
 }
 #endif
