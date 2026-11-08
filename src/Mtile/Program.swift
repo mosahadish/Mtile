@@ -155,7 +155,7 @@ final class MtileApp {
             self.manager.arrange()
         })
         commands.register(ClosureCommand("toggle-taskbar") { [unowned self] _ in
-            self.dock.setHidden(!self.dock.isHidden)
+            self.dock.setHidden(!self.dock.isHidden) { [weak self] in self?.refreshGeometry() }
             self.dock.remember(self.dock.isHidden)
             self.inspector.dockHidden = self.dock.isHidden
             self.refreshGeometry()
@@ -198,9 +198,10 @@ final class MtileApp {
         }
     }
 
-    /// The Dock restarts to apply a hide/show; visibleFrame only catches up once it's back.
+    /// The Dock restarts to apply a hide/show; visibleFrame only catches up once it's back (and,
+    /// when hiding, has switched auto-hide on live).
     private func refreshGeometrySoon() {
-        for delay in [1.0, 2.5] {
+        for delay in [1.0, 2.5, 4.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.refreshGeometry() }
         }
     }
