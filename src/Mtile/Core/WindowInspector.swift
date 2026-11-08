@@ -168,11 +168,18 @@ public final class WindowInspector: WindowBackend {
     /// lands it where it belongs either way.
     @discardableResult
     public func setFrame(_ id: WindowID, _ rect: LayoutRect) -> Bool {
-        guard let el = entries[id]?.element else { return false }
+        guard let entry = entries[id] else { return false }
+        let el = entry.element
         if frame(id) == rect { return true }
         var point = CGPoint(x: rect.x, y: rect.y)
         var size = CGSize(width: rect.width, height: rect.height)
         guard let pos = AXValueCreate(.cgPoint, &point), let ext = AXValueCreate(.cgSize, &size) else { return false }
+        // With AXEnhancedUserInterface on (set by assistive tools), apps animate frame changes
+        // and drop size updates, so turn it off on the app while resizing and restore it after.
+        let app = Self.appElement(entry.pid)
+        let enhanced = Self.copy(app, Self.enhancedUIAttribute) as? Bool ?? false
+        if enhanced { AXUIElementSetAttributeValue(app, Self.enhancedUIAttribute as CFString, kCFBooleanFalse) }
+        defer { if enhanced { AXUIElementSetAttributeValue(app, Self.enhancedUIAttribute as CFString, kCFBooleanTrue) } }
         let moved = AXUIElementSetAttributeValue(el, kAXPositionAttribute as CFString, pos)
         let sized = AXUIElementSetAttributeValue(el, kAXSizeAttribute as CFString, ext)
         AXUIElementSetAttributeValue(el, kAXPositionAttribute as CFString, pos)
@@ -213,6 +220,8 @@ public final class WindowInspector: WindowBackend {
     }
 
     // MARK: - Helpers
+
+    static let enhancedUIAttribute = "AXEnhancedUserInterface"
 
     static func copy(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
         var value: CFTypeRef?
